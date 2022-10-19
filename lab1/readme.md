@@ -1,4 +1,4 @@
-环境：Windows系统 visual studio 2022
+环境：Windows系统 & visual studio 2022
 
 chatServer和chatClient为C/C++版本的客户端-服务器-客户端程序(多人聊天程序)
 
