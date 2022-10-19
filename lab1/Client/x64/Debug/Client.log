@@ -1,0 +1,5 @@
+﻿  client.cpp
+D:\visual studio\ConsoleApplication1\Client\client.cpp(39,41): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+D:\visual studio\ConsoleApplication1\Client\client.cpp(22,30): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings
+D:\visual studio\ConsoleApplication1\Client\client.cpp(38,3): warning C4996: 'scanf': This function or variable may be unsafe. Consider using scanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  Client.vcxproj -> D:\visual studio\ConsoleApplication1\x64\Debug\Client.exe

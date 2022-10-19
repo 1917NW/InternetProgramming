@@ -1,0 +1,5 @@
+﻿  chatServer.cpp
+D:\visual studio\ConsoleApplication1\chatServer\chatServer.cpp(57,50): warning C4312: “类型强制转换”: 从“int”转换到更大的“LPVOID”
+D:\visual studio\ConsoleApplication1\chatServer\chatServer.cpp(28,30): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings
+D:\visual studio\ConsoleApplication1\chatServer\chatServer.cpp(78,45): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+  chatServer.vcxproj -> D:\visual studio\ConsoleApplication1\x64\Debug\chatServer.exe
