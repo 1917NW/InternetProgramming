@@ -69,14 +69,13 @@ void communicate(int index) {
 		r = recv(cSocket[index], buf, 512, NULL);
 		if (r > 0) {
 			buf[r] = 0;
-			printf(">>来自%d的消息:\n%s\n",index, buf);
-
+			printf(">>来自%d的消息:\n%s\n", index, buf);
+				for (int i = 0;i < count;i++) {
+					//把来自index的消息转发给其他人
+					if (i != index)
+						send(cSocket[i], buf, strlen(buf), NULL);
+				}
 			
-			for (int i = 0;i < count;i++) {
-				//把来自index的消息转发给其他人
-				if(i!=index)
-					send(cSocket[i], buf, strlen(buf), NULL);
-			}
 			memset(buf, 0, 512);
 		}
 	}

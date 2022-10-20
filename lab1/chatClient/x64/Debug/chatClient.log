@@ -1,13 +1,25 @@
 ﻿  chatClient.cpp
-D:\visual studio\ConsoleApplication1\chatClient\chatClient.cpp(30,30): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings
-D:\visual studio\ConsoleApplication1\chatClient\chatClient.cpp(55,7): warning C4101: “buff”: 未引用的局部变量
-D:\visual studio\ConsoleApplication1\chatClient\chatClient.cpp(129,41): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
-D:\visual studio\ConsoleApplication1\chatClient\chatClient.cpp(115,50): warning C4996: 'localtime': This function or variable may be unsafe. Consider using localtime_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-D:\visual studio\ConsoleApplication1\chatClient\chatClient.cpp(118,4): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-D:\visual studio\ConsoleApplication1\chatClient\chatClient.cpp(119,4): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-D:\visual studio\ConsoleApplication1\chatClient\chatClient.cpp(120,4): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-D:\visual studio\ConsoleApplication1\chatClient\chatClient.cpp(121,4): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-D:\visual studio\ConsoleApplication1\chatClient\chatClient.cpp(122,4): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-D:\visual studio\ConsoleApplication1\chatClient\chatClient.cpp(123,4): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-D:\visual studio\ConsoleApplication1\chatClient\chatClient.cpp(124,4): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-  chatClient.vcxproj -> D:\visual studio\ConsoleApplication1\x64\Debug\chatClient.exe
+D:\visual studio\lab1\chatClient\chatClient.cpp(30,30): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings
+D:\visual studio\lab1\chatClient\chatClient.cpp(57,7): warning C4101: “buff”: 未引用的局部变量
+D:\visual studio\lab1\chatClient\chatClient.cpp(99,44): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+D:\visual studio\lab1\chatClient\chatClient.cpp(128,42): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+D:\visual studio\lab1\chatClient\chatClient.cpp(150,41): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+D:\visual studio\lab1\chatClient\chatClient.cpp(94,49): warning C4996: 'localtime': This function or variable may be unsafe. Consider using localtime_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(95,3): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(96,3): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(97,3): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(98,3): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(123,51): warning C4996: 'localtime': This function or variable may be unsafe. Consider using localtime_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(124,5): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(125,5): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(126,5): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(127,5): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(137,50): warning C4996: 'localtime': This function or variable may be unsafe. Consider using localtime_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(140,4): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(141,4): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(142,4): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(143,4): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(144,4): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(145,4): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+D:\visual studio\lab1\chatClient\chatClient.cpp(146,4): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  chatClient.vcxproj -> D:\visual studio\lab1\x64\Debug\chatClient.exe

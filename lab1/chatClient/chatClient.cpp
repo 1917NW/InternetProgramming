@@ -30,6 +30,12 @@ int main() {
 	addr.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
 	addr.sin_port = htons(9527);
 
+	printf("请输入你的名字:");
+	fgets(name, 16, stdin);
+	char* p = strchr(name, '\n');
+	if (p != NULL)
+		*p = '\0';
+
 	//4.连接
 	int r = connect(sSocket, (sockaddr*)&addr, sizeof(addr));
 	if (-1 == r) {
@@ -38,11 +44,7 @@ int main() {
 	}
 	printf("连接服务器成功\n");
 
-	printf("请输入你的名字:");
-	fgets(name, 16, stdin);
-	char* p = strchr(name, '\n');
-	if (p != NULL)
-		*p = '\0';
+	
 
 	
 
@@ -65,12 +67,12 @@ int main() {
 				cout << "ERROR_RECV";
 			}
 			else if (strcmp(buf, "End") == 0) {
-				cout << "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b";
+				cout << "\b\b";
 				cout << "对方已结束聊天" << endl;
 				break;
 			}
 			else {
-				cout << "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b";
+				cout << "\b\b";
 				cout << ">>接收消息,消息如下:" << endl;
 				buf[r] = 0;
 				cout << buf << endl;
@@ -86,6 +88,16 @@ void Client_send() {
 		
 		//报文
 		char buf[512];
+		char start[512];
+		time_t t0 = time(0);
+		char tmp[64];
+		strftime(tmp, sizeof(tmp), "%Y/%m/%d %X %A ", localtime(&t0));
+		strcpy(start, "用户:");
+		strcat(start, name);
+		strcat(start, " joins in the ChatRoom at ");
+		strcat(start, tmp);
+		send(sSocket, start, strlen(start) + 1, 0);
+
 		while (1)
 		{
 			//输入信息
@@ -97,7 +109,7 @@ void Client_send() {
 			cout << endl;
 
 			//输入聊天信息
-			printf(">>");
+			cout << ">>";
 			fgets(msg, 512, stdin);
 			char* p = strchr(msg, '\n');
 			if (p != NULL)
@@ -105,7 +117,17 @@ void Client_send() {
 
 			//判断聊天结束
 			if (strcmp(msg, "depart") == 0) {
+				char end[512];
+				time_t t2 = time(0);
+				char tmp[64];
+				strftime(tmp, sizeof(tmp), "%Y/%m/%d %X %A ", localtime(&t2));
+				strcpy(end, "用户:");
+				strcat(end, name);
+				strcat(end, " departs the ChatRoom at ");
+				strcat(end, tmp);
+				send(sSocket, end, strlen(end) + 1, 0);
 				cout << "聊天已结束!" << endl;
+				closesocket(sSocket);
 				break;
 			}
 
@@ -122,7 +144,6 @@ void Client_send() {
 			strcat(buf, msg);
 			strcat(buf, "\n发送时间:");
 			strcat(buf, tmp);
-			
 			cout << buf << endl;
 
 			//发送信息
