@@ -1,4 +1,2 @@
 ﻿  server.cpp
-D:\visual studio\uuudp\uuudp\server.cpp(94,27): warning C4244: “=”: 从“u_short”转换到“unsigned char”，可能丢失数据
-D:\visual studio\uuudp\uuudp\server.cpp(233,27): warning C4244: “=”: 从“u_short”转换到“unsigned char”，可能丢失数据
   uuudp.vcxproj -> D:\visual studio\uuudp\x64\Debug\uuudp.exe

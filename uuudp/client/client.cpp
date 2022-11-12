@@ -2,17 +2,39 @@
 #include <WINSOCK2.h>
 #include <time.h>
 #include <fstream>
+#include<Windows.h>
 #pragma comment(lib, "ws2_32.lib")
 using namespace std;
 
 const int MAXSIZE = 1024;//传输缓冲区最大长度
-const unsigned char SYN = 0x1; //SYN = 1 ACK = 0
-const unsigned char ACK = 0x2;//SYN = 0, ACK = 1，FIN = 0
-const unsigned char ACK_SYN = 0x3;//SYN = 1, ACK = 1
-const unsigned char FIN = 0x4;//FIN = 1 ACK = 0
-const unsigned char FIN_ACK = 0x5;
-const unsigned char OVER = 0x7;//结束标志
+const char SYN = 0x1; //SYN = 1 ACK = 0
+const char ACK = 0x2;//SYN = 0, ACK = 1，FIN = 0
+const char ACK_SYN = 0x3;//SYN = 1, ACK = 1
+const char FIN = 0x4;//FIN = 1 ACK = 0
+const char FIN_ACK = 0x5;
+const char OVER = 0x7;//结束标志
 double MAX_TIME = 0.5 * CLOCKS_PER_SEC;
+
+struct packet_head {
+    char flags; //标志位
+    int length; //数据长度
+    int send_seq; //发送序列号
+    int ack_seq; //确认序列号
+    int check_sum; //校验和，只校验packet_head
+
+    packet_head() {
+        flags = 0;
+
+    }
+    void packet_head_check_sum() {
+        
+        ;
+    }
+
+    void first() {
+        flags = SYN;
+    }
+};
 
 
 /*
@@ -55,71 +77,34 @@ struct HEADER
     }
 };
 
-int Connect(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen)//三次握手建立连接
+int Connect(SOCKET& sock, SOCKADDR_IN& servAdr)//三次握手建立连接
 {
-    HEADER header;
-    char* Buffer = new char[sizeof(header)];
+    SOCKADDR_IN from_adr;
+    int from_sz;
 
-    u_short sum;
+    from_sz = sizeof(from_adr);
 
-    //进行第一次握手
-    header.flag = SYN;
-    header.sum = 0;//校验和置0
-    u_short temp = cksum((u_short*)&header, sizeof(header));
-    header.sum = temp;//计算校验和
-    memcpy(Buffer, &header, sizeof(header));//将首部放入缓冲区
-    if (sendto(socketClient, Buffer, sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen) == -1)
-    {
-        return -1;
-    }
-    clock_t start = clock(); //记录发送第一次握手时间
+    packet_head h;
+    h.first();
+    printf("第一次握手：发送连接请求,等待回应\n");
+    sendto(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&servAdr, sizeof(servAdr));
 
-    u_long mode = 1;
-    ioctlsocket(socketClient, FIONBIO, &mode);
-
-    //接收第二次握手
-    while (recvfrom(socketClient, Buffer, sizeof(header), 0, (sockaddr*)&servAddr, &servAddrlen) <= 0)
-    {
-        if (clock() - start > MAX_TIME)//超时，重新传输第一次握手
-        {
-            header.flag = SYN;
-            header.sum = 0;//校验和置0
-            header.sum = cksum((u_short*)&header, sizeof(header));//计算校验和
-            memcpy(Buffer, &header, sizeof(header));//将首部放入缓冲区
-            sendto(socketClient, Buffer, sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);
-            start = clock();
-            cout << "第一次握手超时，正在进行重传" << endl;
-        }
-    }
+    int strLen = recvfrom(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&from_adr, &from_sz);
+    if (h.flags == (0 | SYN | ACK))
+        printf("收到回应，开始建立连接...\n");
 
 
-    //进行校验和检验
-    memcpy(&header, Buffer, sizeof(header));
-    if (header.flag == ACK && cksum((u_short*)&header, sizeof(header) == 0))
-    {
-        cout << "收到第二次握手信息" << endl;
-    }
-    else
-    {
-        cout << "连接发生错误，请重启客户端！" << endl;
-        return -1;
-    }
-
-    //进行第三次握手
-    header.flag = ACK_SYN;
-    header.sum = 0;
-    header.sum = cksum((u_short*)&header, sizeof(header));//计算校验和
-    if (sendto(socketClient, (char*)&header, sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen) == -1)
-    {
-        return -1;//判断客户端是否打开，-1为未开启发送失败
-    }
-    cout << "服务器成功连接！可以发送数据" << endl;
+    h.flags = 0 | ACK;
+    sendto(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&servAdr, sizeof(servAdr));
+    printf("第三次握手\n");
     return 1;
 }
 
 
 void send_package(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* message, int len, int& order)
 {
+
+    //发送包
     HEADER header;
     char* buffer = new char[MAXSIZE + sizeof(header)];
     header.datasize = len;
@@ -130,10 +115,15 @@ void send_package(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen,
     header.sum = check;
     memcpy(buffer, &header, sizeof(header));
     sendto(socketClient, buffer, len + sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);//发送
+
     cout << "Send message " << len << " bytes!" << " flag:" << int(header.flag) << " SEQ:" << int(header.SEQ) << " SUM:" << int(header.sum) << endl;
+    
+
+
     clock_t start = clock();//记录发送时间
-    //接收ack等信息
-    while (1 == 1)
+    
+    //接收回应信息，并进行处理
+    while (1)
     {
         u_long mode = 1;
         ioctlsocket(socketClient, FIONBIO, &mode);
@@ -141,6 +131,7 @@ void send_package(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen,
         {
             if (clock() - start > MAX_TIME)
             {
+                //超时重传(超时重传必须使用非阻塞模式,每调用一次recvfrom就去检测一下缓冲区,然后去计算时间差)
                 header.datasize = len;
                 header.SEQ = u_char(order);//序列号
                 header.flag = u_char(0x0);
@@ -148,14 +139,19 @@ void send_package(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen,
                 memcpy(buffer + sizeof(header), message, sizeof(header) + len);
                 u_short check = cksum((u_short*)buffer, sizeof(header) + len);//计算校验和
                 header.sum = check;
+
+                
                 memcpy(buffer, &header, sizeof(header));
                 sendto(socketClient, buffer, len + sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);//发送
                 cout << "TIME OUT! ReSend message " << len << " bytes! Flag:" << int(header.flag) << " SEQ:" << int(header.SEQ) << endl;
                 clock_t start = clock();//记录发送时间
             }
         }
+
         memcpy(&header, buffer, sizeof(header));//缓冲区接收到信息，读取
         u_short check = cksum((u_short*)&header, sizeof(header));
+
+        //检查回应消息
         if (header.SEQ == u_short(order) && header.flag == ACK)
         {
             cout << "Send has been confirmed! Flag:" << int(header.flag) << " SEQ:" << int(header.SEQ) << endl;
@@ -163,11 +159,14 @@ void send_package(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen,
         }
         else
         {
+            //错误重发&乱序重发
             continue;
         }
     }
+
+    //改回阻塞模式
     u_long mode = 0;
-    ioctlsocket(socketClient, FIONBIO, &mode);//改回阻塞模式
+    ioctlsocket(socketClient, FIONBIO, &mode);
 }
 
 void send(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* message, int len)
@@ -177,28 +176,34 @@ void send(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* m
     for (int i = 0; i < packagenum; i++)
     {
         send_package(socketClient, servAddr, servAddrlen, message + i * MAXSIZE, i == packagenum - 1 ? len - (packagenum - 1) * MAXSIZE : MAXSIZE, seqnum);
+        
         seqnum++;
         if (seqnum > 255)
         {
             seqnum = seqnum - 256;
         }
     }
-    //发送结束信息
+
+    //文件发送结束，发送一条over消息
     HEADER header;
     char* Buffer = new char[sizeof(header)];
     header.flag = OVER;
     header.sum = 0;
     u_short temp = cksum((u_short*)&header, sizeof(header));
     header.sum = temp;
+
     memcpy(Buffer, &header, sizeof(header));
     sendto(socketClient, Buffer, sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);
     cout << "Send End!" << endl;
+
+    //等待服务器端发送over消息
     clock_t start = clock();
-    while (1 == 1)
+    while (1)
     {
         u_long mode = 1;
+        //修改为非阻塞模式
         ioctlsocket(socketClient, FIONBIO, &mode);
-        while (recvfrom(socketClient, Buffer, MAXSIZE, 0, (sockaddr*)&servAddr, &servAddrlen) <= 0)
+        while (recvfrom(socketClient, Buffer, MAXSIZE-1, 0, (sockaddr*)&servAddr, &servAddrlen) <= 0)
         {
             if (clock() - start > MAX_TIME)
             {
@@ -214,6 +219,7 @@ void send(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* m
             }
         }
         memcpy(&header, Buffer, sizeof(header));//缓冲区接收到信息，读取
+
         u_short check = cksum((u_short*)&header, sizeof(header));
         if (header.flag == OVER)
         {
@@ -225,87 +231,35 @@ void send(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* m
             continue;
         }
     }
+
+    //改回阻塞模式
     u_long mode = 0;
-    ioctlsocket(socketClient, FIONBIO, &mode);//改回阻塞模式
+    ioctlsocket(socketClient, FIONBIO, &mode);
 }
 
 
 
-int disConnect(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen)
+int disConnect(SOCKET& sock, SOCKADDR_IN& servAdr)
 {
-    HEADER header;
-    char* Buffer = new char[sizeof(header)];
+    SOCKADDR_IN from_adr;
+    int from_sz = sizeof(from_adr);
 
-    u_short sum;
-
-    //进行第一次握手
-    header.flag = FIN;
-    header.sum = 0;//校验和置0
-    u_short temp = cksum((u_short*)&header, sizeof(header));
-    header.sum = temp;//计算校验和
-    memcpy(Buffer, &header, sizeof(header));//将首部放入缓冲区
-    if (sendto(socketClient, Buffer, sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen) == -1)
-    {
-        return -1;
-    }
-    clock_t start = clock(); //记录发送第一次挥手时间
-
-    u_long mode = 1;
-    ioctlsocket(socketClient, FIONBIO, &mode);
-
-    //接收第二次挥手
-    while (recvfrom(socketClient, Buffer, sizeof(header), 0, (sockaddr*)&servAddr, &servAddrlen) <= 0)
-    {
-        if (clock() - start > MAX_TIME)//超时，重新传输第一次挥手
-        {
-            header.flag = FIN;
-            header.sum = 0;//校验和置0
-            header.sum = cksum((u_short*)&header, sizeof(header));//计算校验和
-            memcpy(Buffer, &header, sizeof(header));//将首部放入缓冲区
-            sendto(socketClient, Buffer, sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);
-            start = clock();
-            cout << "第一次挥手超时，正在进行重传" << endl;
-        }
-    }
+    packet_head h;
+    h.flags = 0 | FIN;
+    sendto(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&servAdr, sizeof(servAdr));
+    printf("发送断开连接请求,等待回应\n");
 
 
-    //进行校验和检验
-    memcpy(&header, Buffer, sizeof(header));
-    if (header.flag == ACK && cksum((u_short*)&header, sizeof(header) == 0))
-    {
-        cout << "收到第二次挥手信息" << endl;
-    }
-    else
-    {
-        cout << "连接发生错误，程序直接退出！" << endl;
-        return -1;
-    }
+    int strLen = recvfrom(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&from_adr, &from_sz);
+    if (h.flags == (0 | ACK))
+        printf("收到回应，开始建立连接...\n");
 
-    //进行第三次挥手
-    header.flag = FIN_ACK;
-    header.sum = 0;
-    header.sum = cksum((u_short*)&header, sizeof(header));//计算校验和
-    if (sendto(socketClient, (char*)&header, sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen) == -1)
-    {
-        return -1;
-    }
+    strLen = recvfrom(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&from_adr, &from_sz);
+    if (h.flags == (0 | FIN))
+        printf("收到服务器断开请求，开始断开连接...\n");
 
-    start = clock();
-    //接收第四次挥手
-    while (recvfrom(socketClient, Buffer, sizeof(header), 0, (sockaddr*)&servAddr, &servAddrlen) <= 0)
-    {
-        if (clock() - start > MAX_TIME)//超时，重新传输第三次挥手
-        {
-            header.flag = FIN;
-            header.sum = 0;//校验和置0
-            header.sum = cksum((u_short*)&header, sizeof(header));//计算校验和
-            memcpy(Buffer, &header, sizeof(header));//将首部放入缓冲区
-            sendto(socketClient, Buffer, sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);
-            start = clock();
-            cout << "第四次握手超时，正在进行重传" << endl;
-        }
-    }
-    cout << "四次挥手结束，连接断开！" << endl;
+    h.flags = 0 | ACK;
+    sendto(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&servAdr, sizeof(servAdr));
     return 1;
 }
 
@@ -316,17 +270,19 @@ int main()
     WSAStartup(MAKEWORD(2, 2), &wsadata);
 
     SOCKADDR_IN server_addr;
-    SOCKET server;
+    SOCKET sock;
 
-    server_addr.sin_family = AF_INET;//使用IPV4
-    server_addr.sin_port = htons(2456);
-    server_addr.sin_addr.s_addr = htonl(2130706433);
+    //设置服务器的地址
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    server_addr.sin_port = htons(9527);
+    
 
-    server = socket(AF_INET, SOCK_DGRAM, 0);
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
     int len = sizeof(server_addr);
 
     //建立连接
-    if (Connect(server, server_addr, len) == -1)
+    if (Connect(sock, server_addr) == -1)
     {
         return 0;
     }
@@ -340,18 +296,19 @@ int main()
     char* buffer = new char[10000000];
 
     fin.read(buffer, 10000000);
-    int index = fin.gcount();
+    int bytes = fin.gcount();
         
     //发送文件到服务器
-    send(server, server_addr, len, (char*)(filename.c_str()), filename.length());
+    send(sock, server_addr, len, (char*)(filename.c_str()), filename.length());
     clock_t start = clock();
-    send(server, server_addr, len, buffer, index);
+    send(sock, server_addr, len, buffer, bytes);
     clock_t end = clock();
     cout << "传输总时间为:" << (end - start) / CLOCKS_PER_SEC << "s" << endl;
-    cout << "吞吐率为:" << ((float)index) / ((end - start) / CLOCKS_PER_SEC) << "byte/s" << endl;
+    cout << "吞吐率为:" << ((float)bytes) / ((end - start) / CLOCKS_PER_SEC) << "byte/s" << endl;
    
 
     //关闭连接
-    disConnect(server, server_addr, len);
+    disConnect(sock, server_addr);
+    Sleep(10000);
 }
 

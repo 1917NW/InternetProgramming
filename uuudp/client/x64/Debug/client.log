@@ -1,6 +1,5 @@
 ﻿  client.cpp
-D:\visual studio\uuudp\client\client.cpp(63,13): warning C4101: “sum”: 未引用的局部变量
-D:\visual studio\uuudp\client\client.cpp(239,13): warning C4101: “sum”: 未引用的局部变量
-D:\visual studio\uuudp\client\client.cpp(340,15): warning C4244: “初始化”: 从“std::streamsize”转换到“int”，可能丢失数据
-D:\visual studio\uuudp\client\client.cpp(343,80): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+D:\visual studio\uuudp\client\client.cpp(299,15): warning C4244: “初始化”: 从“std::streamsize”转换到“int”，可能丢失数据
+D:\visual studio\uuudp\client\client.cpp(302,78): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+D:\visual studio\uuudp\client\client.cpp(277,35): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings
   client.vcxproj -> D:\visual studio\uuudp\x64\Debug\client.exe
