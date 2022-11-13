@@ -9,11 +9,10 @@ using namespace std;
 const int MAXSIZE = 1024;//传输缓冲区最大长度
 const char SYN = 0x1; //SYN = 1 ACK = 0
 const char ACK = 0x2;//SYN = 0, ACK = 1，FIN = 0
-const char ACK_SYN = 0x3;//SYN = 1, ACK = 1
 const char FIN = 0x4;//FIN = 1 ACK = 0
-const char FIN_ACK = 0x5;
-const char OVER = 0x7;//结束标志
+const char OVER = 0x5;//结束标志
 double MAX_TIME = 0.5 * CLOCKS_PER_SEC;
+string Flags[] = { "ZERO","SYN","ACK","SYN | ACK","FIN","OVER" };
 
 
 /*
@@ -67,6 +66,8 @@ int connect(SOCKET& sock, SOCKADDR_IN& servAdr)//三次握手建立连接
     packet_head h;
     h.datasize = 0;
     h.flags = SYN;
+    h.sum = 0;
+    h.sum = cksum((u_short*)&h, sizeof(h));
     printf("第一次握手：发送连接请求,等待回应\n");
     sendto(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&servAdr, sizeof(servAdr));
 
@@ -74,9 +75,9 @@ int connect(SOCKET& sock, SOCKADDR_IN& servAdr)//三次握手建立连接
     //修改为非阻塞模式
     ioctlsocket(sock, FIONBIO, &mode);
     clock_t start = clock();
-    while (recvfrom(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&from_adr, &from_sz) <= 0 )
+    while (recvfrom(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&from_adr, &from_sz) <= 0)
     {
-        if (clock() - start >5* MAX_TIME)
+        if (clock() - start > 5 * MAX_TIME)
         {
             //超时断开连接
             closesocket(sock);
@@ -88,13 +89,15 @@ int connect(SOCKET& sock, SOCKADDR_IN& servAdr)//三次握手建立连接
     mode = 0;
     ioctlsocket(sock, FIONBIO, &mode);
 
-    if (h.flags == (0 | SYN | ACK))
+    if (h.flags == (0 | SYN | ACK) && cksum((u_short*)&h, sizeof(h)) == 0)
         printf("收到回应，开始建立连接...\n");
     else
         return -1;
 
 
     h.flags = 0 | ACK;
+    h.sum = 0;
+    h.sum = cksum((u_short*)&h, sizeof(h));
     sendto(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&servAdr, sizeof(servAdr));
     printf("客户端发起第三次握手\n");
     return 1;
@@ -108,22 +111,21 @@ void send_package(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen,
     packet_head header;
     char* buffer = new char[MAXSIZE + sizeof(header)];
     header.datasize = len;
-    header.seq =order;//序列号
+    header.seq = order;//序列号
+    header.sum= cksum((u_short*)&header, sizeof(header));
     memcpy(buffer, &header, sizeof(header));
     memcpy(buffer + sizeof(header), message, len);
-    u_short check = cksum((u_short*)buffer, sizeof(header) + len);
-    header.sum = check;
-    memcpy(buffer, &header, sizeof(header));
     sendto(socketClient, buffer, len + sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);//发送
 
-    cout << "Send data " << len << " bytes " << " flags:" << int(header.flags) << " SEQ:" << int(header.seq) << " SUM:" << int(header.sum) << endl;
-    
-    //重传缓冲区
-    char* buffer_copy= new char[MAXSIZE + sizeof(header)];
-    memcpy(buffer_copy, buffer, len+sizeof(header));
+    cout << "Send data " << len << " bytes " << " flags:" << Flags[(header.flags)] << " SEQ:" << int(header.seq) << " SUM:" << int(header.sum) << endl;
 
-    clock_t start = clock();//记录发送时间
-    
+    //分配重传缓冲区
+    char* buffer_copy = new char[MAXSIZE + sizeof(header)];
+    memcpy(buffer_copy, buffer, len + sizeof(header));
+
+    //记录发送时间
+    clock_t start = clock();
+
     //接收回应信息，并进行处理
     while (1)
     {
@@ -134,22 +136,21 @@ void send_package(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen,
         {
             if (clock() - start > MAX_TIME)
             {
-                //超时重传(超时重传必须使用非阻塞模式,,然后去计算时间差)
+                //超时重传(超时重传必须使用非阻塞模式,,然后计算时间差)
                 sendto(socketClient, buffer_copy, len + sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);//发送
-                cout << "Time Out! ReSend Data " << len << " bytes  Flag:" << int(header.flags) << " SEQ:" << int(header.seq) << endl;
-                
+                cout << "Time Out! ReSend Data " << len << " bytes  flags:" <<Flags[(header.flags)] << " SEQ:" << int(header.seq) << endl;
+
                 //重新记录发送时间
                 clock_t start = clock();
             }
         }
 
         memcpy(&header, buffer, sizeof(header));//缓冲区接收到信息，读取
-        u_short check = cksum((u_short*)&header, sizeof(header));
 
         //检查回应消息
-        if (header.seq == u_short(order) && header.flags == ACK)
+        if (header.seq == u_short(order) && header.flags == ACK  && cksum((u_short*)&header, sizeof(header)) == 0)
         {
-            cout << "ACK accepted  Flag:" << int(header.flags) << " SEQ:" << int(header.seq) << endl;
+            cout << "ACK accepted  flags:" << Flags[(header.flags)] << " SEQ:" << int(header.seq) << endl;
             break;
         }
         else
@@ -171,7 +172,7 @@ void send(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* m
     for (int i = 0; i < packagenum; i++)
     {
         int data_length = i == packagenum - 1 ? len - (packagenum - 1) * MAXSIZE : MAXSIZE;
-        send_package(socketClient, servAddr, servAddrlen, message + i * MAXSIZE,data_length , seqnum);
+        send_package(socketClient, servAddr, servAddrlen, message + i * MAXSIZE, data_length, seqnum);
         seqnum++;
     }
 
@@ -180,8 +181,8 @@ void send(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* m
     char* Buffer = new char[sizeof(header)];
     header.flags = OVER;
     header.sum = 0;
-    u_short temp = cksum((u_short*)&header, sizeof(header));
-    header.sum = temp;
+    header.sum =cksum((u_short*)&header, sizeof(header));
+    
     sendto(socketClient, (char*)&header, sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);
     cout << "Send End" << endl;
 
@@ -204,8 +205,8 @@ void send(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* m
             }
         }
 
-        u_short check = cksum((u_short*)&header, sizeof(header));
-        if (header.flags == OVER)
+        
+        if (header.flags == OVER && cksum((u_short*)&header, sizeof(header)) == 0)
         {
             cout << "Send Over" << endl;
             break;
@@ -230,6 +231,8 @@ int disconnect(SOCKET& sock, SOCKADDR_IN& servAdr)
 
     packet_head h;
     h.flags = 0 | FIN;
+    h.sum = 0;
+    h.sum = cksum((u_short*)&h, sizeof(h));
     sendto(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&servAdr, sizeof(servAdr));
     printf("发送断开连接请求,等待回应\n");
 
@@ -243,6 +246,8 @@ int disconnect(SOCKET& sock, SOCKADDR_IN& servAdr)
         printf("收到服务器断开请求，开始断开连接...\n");
 
     h.flags = 0 | ACK;
+    h.sum = 0;
+    h.sum = cksum((u_short*)&h, sizeof(h));
     sendto(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&servAdr, sizeof(servAdr));
     return 1;
 }
@@ -260,7 +265,7 @@ int main()
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     server_addr.sin_port = htons(9527);
-    
+
     //设置客户端套接字
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     int len = sizeof(server_addr);
@@ -282,12 +287,12 @@ int main()
     fin.seekg(0, ios::end);
     long long fileSize = (int)fin.tellg();
     fin.seekg(0, ios::beg);
-    
+
     //分配内存缓冲区，将文件读到内存
     char* buffer = new char[fileSize];
     fin.read(buffer, fileSize);
     long long bytes = fin.gcount();
-        
+
     //发送文件到服务器
     //1.发送文件名
     send(sock, server_addr, len, (char*)(fileName.c_str()), fileName.length());
@@ -305,8 +310,7 @@ int main()
 
     cout << "传输总时间为:" << (end - start) / CLOCKS_PER_SEC << "s" << endl;
     cout << "吞吐率为:" << ((float)bytes) / ((end - start) / CLOCKS_PER_SEC) << "byte/s" << endl;
-   
+
     while (1)
         ;
 }
-

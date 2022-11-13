@@ -2,7 +2,7 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>D:\visual studio\uuudp\x64\Debug\server.exe</FullPath>
+      <FullPath>D:\visual studio\lab3\x64\Debug\server.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />

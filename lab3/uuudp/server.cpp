@@ -8,21 +8,19 @@ using namespace std;
 
 
 const int MAXSIZE = 1024;//传输缓冲区最大长度
-const char SYN = 0x1; 
-const char ACK = 0x2;
-const char ACK_SYN = 0x3;//SYN = 1, ACK = 1
+const char SYN = 0x1; //SYN = 1 ACK = 0
+const char ACK = 0x2;//SYN = 0, ACK = 1，FIN = 0
 const char FIN = 0x4;//FIN = 1 ACK = 0
-const char FIN_ACK = 0x5;//FIN = 1 ACK = 0
-const char OVER = 0x7;//结束标志
+const char OVER = 0x5;//结束标志
 double MAX_TIME = 0.5 * CLOCKS_PER_SEC;
+string Flags[] = { "ZERO","SYN","ACK","SYN | ACK","FIN","OVER" };
 
 
-
-u_short cksum(u_short* mes, int size) {
+u_short cksum(u_short* message, int size) {
     int count = (size + 1) / 2;
     u_short* buf = (u_short*)malloc(size + 1);
     memset(buf, 0, size + 1);
-    memcpy(buf, mes, size);
+    memcpy(buf, message, size);
     u_long sum = 0;
     while (count--) {
         sum += *buf++;
@@ -52,14 +50,16 @@ struct packet_head
 };
 
 int connect(SOCKET& servSock, SOCKADDR_IN& clntAdr, int& clntAdrSz)
-{ 
+{
     packet_head h;
 
     int strLen = recvfrom(servSock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&clntAdr, &clntAdrSz);
-    if (h.flags == SYN)
+    if (h.flags == SYN && cksum((u_short*)&h, sizeof(h)) == 0)
         printf("收到连接请求\n");
 
     h.flags = 0 | SYN | ACK;
+    h.sum = 0;
+    h.sum = cksum((u_short*)&h, sizeof(h));
     sendto(servSock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&clntAdr, sizeof(clntAdr));
     printf("服务器端发起第二次握手\n");
 
@@ -80,8 +80,8 @@ int connect(SOCKET& servSock, SOCKADDR_IN& clntAdr, int& clntAdrSz)
     //改回阻塞模式
     mode = 0;
     ioctlsocket(servSock, FIONBIO, &mode);
-    
-    if (h.flags == (0 | ACK))
+
+    if (h.flags == (0 | ACK) && cksum((u_short*)&h, sizeof(h)) == 0)
         printf("成功建立连接\n");
 
     return 1;
@@ -114,7 +114,8 @@ int recv_data(SOCKET& sockServ, SOCKADDR_IN& ClientAddr, int& ClientAddrLen, cha
             break;
         }
 
-        if (header.flags == 0 && cksum((u_short*)Buffer, length - sizeof(header)))
+        
+        if (header.flags == 0 && cksum((u_short*)&header, sizeof(header)) == 0)
         {
             //判断接收到的包是否重复包
             if (header.seq != seq)
@@ -122,19 +123,18 @@ int recv_data(SOCKET& sockServ, SOCKADDR_IN& ClientAddr, int& ClientAddrLen, cha
                 //重复包，发送上一个序列号和ACK
                 header.flags = ACK;
                 header.datasize = 0;
-                header.seq = (seq - 1);
+                header.seq = seq-1;
                 header.sum = 0;
-                u_short temp = cksum((u_short*)&header, sizeof(header));
-                header.sum = temp;
+                header.sum = cksum((u_short*)&header, sizeof(header));
                 memcpy(Buffer, &header, sizeof(header));
                 sendto(sockServ, Buffer, sizeof(header), 0, (sockaddr*)&ClientAddr, ClientAddrLen);
-                cout << "Packet Duplicate  Send ACK:" << (int)header.seq << " SEQ:" << (int)header.seq << endl;
+                cout << "Packet Duplicate  Send ACK:" <<  " SEQ:" << (int)header.seq << endl;
                 continue;
             }
             //接收到正确的包
             else {
                 //取出Buffer中的内容
-                cout << "Accept Data " << length - sizeof(header) << " bytes Flag:" << int(header.flags) << " SEQ : " << int(header.seq) << " SUM:" << int(header.sum) << endl;
+                cout << "Accept Data " << length - sizeof(header) << " bytes "  << " SEQ : " << int(header.seq) << " SUM:" << int(header.sum) << endl;
 
                 //把数据放入到数据缓冲区里面
                 memcpy(buf + file_size, Buffer + sizeof(header), length - sizeof(header));
@@ -145,20 +145,24 @@ int recv_data(SOCKET& sockServ, SOCKADDR_IN& ClientAddr, int& ClientAddrLen, cha
                 header.datasize = 0;
                 header.seq = seq;
                 header.sum = 0;
-                u_short temp1 = cksum((u_short*)&header, sizeof(header));
-                header.sum = temp1;
+                header.sum = cksum((u_short*)&header, sizeof(header));
                 sendto(sockServ, (char*)&header, sizeof(header), 0, (sockaddr*)&ClientAddr, ClientAddrLen);
                 cout << "Send ACK " << " SEQ:" << (int)header.seq << endl;
                 seq++;
             }
         }
+        else {
+            if(header.flags != 0)
+            cout << "Error" << endl;
+
+        }
     }
 
     //发送OVER信息
     header.flags = OVER;
+    header.datasize = 0;
     header.sum = 0;
-    u_short temp = cksum((u_short*)&header, sizeof(header));
-    header.sum = temp;
+    header.sum = cksum((u_short*)&header, sizeof(header));
     sendto(sockServ, (char*)&header, sizeof(header), 0, (sockaddr*)&ClientAddr, ClientAddrLen);
 
     return file_size;
@@ -168,19 +172,23 @@ int disconnect(SOCKET& servSock, SOCKADDR_IN& clntAdr, int& clntAdrSz)
 {
     packet_head h;
     int strLen = recvfrom(servSock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&clntAdr, &clntAdrSz);
-    if(h.flags==FIN)
-    printf("收到客户端断开请求\n");
+    if (h.flags == FIN && cksum((u_short*)&h, sizeof(h)) == 0)
+        printf("收到客户端断开请求\n");
 
     h.flags = 0 | ACK;
+    h.sum = 0;
+    h.sum = cksum((u_short*)&h, sizeof(h));
     sendto(servSock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&clntAdr, sizeof(clntAdr));
     printf("发送确认消息\n");
 
     h.flags = 0 | FIN;
+    h.sum = 0;
+    h.sum = cksum((u_short*)&h, sizeof(h));
     sendto(servSock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&clntAdr, sizeof(clntAdr));
     printf("发送服务器端断开请求\n");
 
     strLen = recvfrom(servSock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&clntAdr, &clntAdrSz);
-    if (h.flags == ACK)
+    if (h.flags == ACK && cksum((u_short*)&h, sizeof(h)) == 0)
         printf("服务器断开连接...\n");
     return 1;
 }
@@ -191,9 +199,9 @@ int main()
     WSADATA wsadata;
     WSAStartup(MAKEWORD(2, 2), &wsadata);
 
-    SOCKADDR_IN server_addr,client_addr;
+    SOCKADDR_IN server_addr, client_addr;
     SOCKET server;
-    
+
 
 
     server = socket(AF_INET, SOCK_DGRAM, 0);
@@ -207,7 +215,7 @@ int main()
     bind(server, (SOCKADDR*)&server_addr, sizeof(server_addr));
 
     int clntAdrSz = sizeof(client_addr);
-    
+
     //建立连接
     connect(server, client_addr, clntAdrSz);
 
@@ -218,7 +226,7 @@ int main()
 
     //接收文件名
     int name_len = recv_data(server, client_addr, clntAdrSz, name);
-    
+
     //接收文件长度
     recv_data(server, client_addr, clntAdrSz, (char*)&fileSize);
     cout << fileSize << endl;
@@ -226,18 +234,17 @@ int main()
     //接收文件数据
     char* data = new char[fileSize];
     int data_len = recv_data(server, client_addr, clntAdrSz, data);
-    
+
     //断开连接
     disconnect(server, client_addr, clntAdrSz);
-    
-    
+
+
     //写入本地文件
     name[name_len] = '\0';
     fout.open(name, ofstream::binary);
     fout.write(data, data_len);
     fout.close();
-    
+
     while (1)
         ;
 }
-
