@@ -12,8 +12,9 @@ const char SYN = 0x1; //SYN = 1 ACK = 0
 const char ACK = 0x2;//SYN = 0, ACK = 1，FIN = 0
 const char FIN = 0x4;//FIN = 1 ACK = 0
 const char OVER = 0x5;//结束标志
-double MAX_TIME = 0.5 * CLOCKS_PER_SEC;
+double MAX_TIME = 1 * CLOCKS_PER_SEC;
 string Flags[] = { "ZERO","SYN","ACK","SYN | ACK","FIN","OVER" };
+
 
 
 u_short cksum(u_short* message, int size) {
@@ -121,6 +122,7 @@ int recv_data(SOCKET& sockServ, SOCKADDR_IN& ClientAddr, int& ClientAddrLen, cha
             if (header.seq != seq)
             {
                 //重复包，发送上一个序列号和ACK
+                cout << "WRONG PAG !  ACK:" << " SEQ:" << (int)header.seq << endl;
                 header.flags = ACK;
                 header.datasize = 0;
                 header.seq = seq-1;
@@ -128,7 +130,7 @@ int recv_data(SOCKET& sockServ, SOCKADDR_IN& ClientAddr, int& ClientAddrLen, cha
                 header.sum = cksum((u_short*)&header, sizeof(header));
                 memcpy(Buffer, &header, sizeof(header));
                 sendto(sockServ, Buffer, sizeof(header), 0, (sockaddr*)&ClientAddr, ClientAddrLen);
-                cout << "Packet Duplicate  Send ACK:" <<  " SEQ:" << (int)header.seq << endl;
+                cout << "Packet Duplicate !  Send ACK:" <<  " SEQ:" << (int)header.seq <<endl;
                 continue;
             }
             //接收到正确的包
@@ -140,6 +142,7 @@ int recv_data(SOCKET& sockServ, SOCKADDR_IN& ClientAddr, int& ClientAddrLen, cha
                 memcpy(buf + file_size, Buffer + sizeof(header), length - sizeof(header));
                 file_size = file_size + int(header.datasize);
 
+                seq = header.seq;
                 //发送该包的序列号和ACK
                 header.flags = ACK;
                 header.datasize = 0;
@@ -150,11 +153,6 @@ int recv_data(SOCKET& sockServ, SOCKADDR_IN& ClientAddr, int& ClientAddrLen, cha
                 cout << "Send ACK " << " SEQ:" << (int)header.seq << endl;
                 seq++;
             }
-        }
-        else {
-            if(header.flags != 0)
-            cout << "Error" << endl;
-
         }
     }
 
@@ -186,10 +184,7 @@ int disconnect(SOCKET& servSock, SOCKADDR_IN& clntAdr, int& clntAdrSz)
     h.sum = cksum((u_short*)&h, sizeof(h));
     sendto(servSock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&clntAdr, sizeof(clntAdr));
     printf("发送服务器端断开请求\n");
-
-    strLen = recvfrom(servSock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&clntAdr, &clntAdrSz);
-    if (h.flags == ACK && cksum((u_short*)&h, sizeof(h)) == 0)
-        printf("服务器断开连接...\n");
+    printf("服务器断开连接...\n");
     return 1;
 }
 
@@ -208,7 +203,7 @@ int main()
 
     //设置服务器的地址
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(9527);
+    server_addr.sin_port = htons(9528);
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     //给服务器分配地址信息
@@ -241,8 +236,9 @@ int main()
 
     //写入本地文件
     name[name_len] = '\0';
-    fout.open(name, ofstream::binary);
+    fout.open(name, ios::out|ios::binary);
     fout.write(data, data_len);
+    cout << "文件写入完毕" << endl;
     fout.close();
 
     while (1)

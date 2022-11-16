@@ -11,8 +11,12 @@ const char SYN = 0x1; //SYN = 1 ACK = 0
 const char ACK = 0x2;//SYN = 0, ACK = 1，FIN = 0
 const char FIN = 0x4;//FIN = 1 ACK = 0
 const char OVER = 0x5;//结束标志
-double MAX_TIME = 0.5 * CLOCKS_PER_SEC;
+double MAX_TIME = 1 * CLOCKS_PER_SEC;
+const int dup_count_MAX = 50;
 string Flags[] = { "ZERO","SYN","ACK","SYN | ACK","FIN","OVER" };
+
+
+int dup_count = 0;
 
 
 /*
@@ -106,13 +110,18 @@ int connect(SOCKET& sock, SOCKADDR_IN& servAdr)//三次握手建立连接
 
 void send_package(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* message, int len, int& order)
 {
+    //初始化重发次数
+    dup_count = 0;
 
     //设置包的头部
     packet_head header;
     char* buffer = new char[MAXSIZE + sizeof(header)];
     header.datasize = len;
     header.seq = order;//序列号
+    header.flags = 0;
     header.sum= cksum((u_short*)&header, sizeof(header));
+
+    //整合udp数据包
     memcpy(buffer, &header, sizeof(header));
     memcpy(buffer + sizeof(header), message, len);
     sendto(socketClient, buffer, len + sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);//发送
@@ -136,12 +145,19 @@ void send_package(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen,
         {
             if (clock() - start > MAX_TIME)
             {
-                //超时重传(超时重传必须使用非阻塞模式,,然后计算时间差)
-                sendto(socketClient, buffer_copy, len + sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);//发送
-                cout << "Time Out! ReSend Data " << len << " bytes  flags:" <<Flags[(header.flags)] << " SEQ:" << int(header.seq) << endl;
+                //重发次数增加
+                dup_count++;
+                //重发次数增加到一定数量，断开连接
+                if (dup_count >= dup_count_MAX) {
+                    closesocket(socketClient);
+                }
+
+                sendto(socketClient, buffer_copy, len + sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);
+                cout << "Time Out! ReSend Data " << len << " bytes  flags:" <<Flags[(header.flags)] << " SEQ:" << int(header.seq)<<" order:"<<order << "第"<<dup_count<<"次重传"<<endl;
 
                 //重新记录发送时间
-                clock_t start = clock();
+                start = clock();
+
             }
         }
 
@@ -150,11 +166,12 @@ void send_package(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen,
         //检查回应消息
         if (header.seq == u_short(order) && header.flags == ACK  && cksum((u_short*)&header, sizeof(header)) == 0)
         {
-            cout << "ACK accepted  flags:" << Flags[(header.flags)] << " SEQ:" << int(header.seq) << endl;
+            cout << "ACK accepted ! flags:" << Flags[(header.flags)] << " SEQ:" << int(header.seq) << endl;
             break;
         }
         else
         {
+            cout << "Bad PAG !" << header.seq << endl;
             //包损坏重发(停等机制没有乱序的问题)
             continue;
         }
@@ -186,9 +203,11 @@ void send(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* m
     sendto(socketClient, (char*)&header, sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);
     cout << "Send End" << endl;
 
+    //设置over重发缓冲区
     packet_head header_copy = header;
     //等待服务器端发送over消息
     clock_t start = clock();
+    dup_count = 0;
     while (1)
     {
         u_long mode = 1;
@@ -198,6 +217,9 @@ void send(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* m
         {
             if (clock() - start > MAX_TIME)
             {
+                dup_count++;
+                if (dup_count >= dup_count_MAX)
+                    closesocket(socketClient);
                 //超时重发
                 sendto(socketClient, (char*)&header_copy, sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);
                 cout << "Time Out! ReSend End!" << endl;
@@ -228,7 +250,7 @@ int disconnect(SOCKET& sock, SOCKADDR_IN& servAdr)
 {
     SOCKADDR_IN from_adr;
     int from_sz = sizeof(from_adr);
-
+    int strLen;
     packet_head h;
     h.flags = 0 | FIN;
     h.sum = 0;
@@ -236,10 +258,34 @@ int disconnect(SOCKET& sock, SOCKADDR_IN& servAdr)
     sendto(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&servAdr, sizeof(servAdr));
     printf("发送断开连接请求,等待回应\n");
 
-
-    int strLen = recvfrom(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&from_adr, &from_sz);
-    if (h.flags == (0 | ACK))
-        printf("收到回应，开始建立连接...\n");
+    packet_head h_buffer;
+    clock_t start = clock();
+    dup_count = 0;
+   
+        u_long mode = 1;
+        //修改为非阻塞模式
+        ioctlsocket(sock, FIONBIO, &mode);
+        while (recvfrom(sock, (char*)&h_buffer, sizeof(h_buffer), 0, (SOCKADDR*)&from_adr, &from_sz) <= 0)
+        {
+            if (clock() - start > MAX_TIME)
+            {
+                dup_count++;
+                if (dup_count >= dup_count_MAX)
+                    closesocket(sock);
+                //超时重发
+                sendto(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&servAdr, sizeof(servAdr));
+                cout << "Time Out! ReSend End!" << endl;
+                start = clock();
+            }
+        }
+        if (h_buffer.flags == (0 | ACK)) {
+            printf("收到回应，开始建立连接...\n");
+        }
+    //修改为阻塞模式
+     mode = 0;
+    ioctlsocket(sock, FIONBIO, &mode);
+   
+   
 
     strLen = recvfrom(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&from_adr, &from_sz);
     if (h.flags == (0 | FIN))
@@ -281,7 +327,7 @@ int main()
     string fileName;
     cout << "请输入文件名:" << endl;
     cin >> fileName;
-    fin.open(fileName.c_str(), ifstream::binary);
+    fin.open(fileName.c_str(), ios::in|ios::binary);
 
     //获取文件大小
     fin.seekg(0, ios::end);

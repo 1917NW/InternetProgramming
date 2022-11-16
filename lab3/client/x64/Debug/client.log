@@ -1,5 +1,5 @@
 ﻿  client.cpp
-D:\visual studio\lab3\client\client.cpp(298,78): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
-D:\visual studio\lab3\client\client.cpp(305,42): warning C4244: “参数”: 从“__int64”转换到“int”，可能丢失数据
-D:\visual studio\lab3\client\client.cpp(266,35): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings
+D:\visual studio\lab3\client\client.cpp(344,78): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+D:\visual studio\lab3\client\client.cpp(351,42): warning C4244: “参数”: 从“__int64”转换到“int”，可能丢失数据
+D:\visual studio\lab3\client\client.cpp(312,35): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings
   client.vcxproj -> D:\visual studio\lab3\x64\Debug\client.exe
