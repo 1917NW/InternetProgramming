@@ -185,6 +185,7 @@ int disconnect(SOCKET& servSock, SOCKADDR_IN& clntAdr, int& clntAdrSz)
     sendto(servSock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&clntAdr, sizeof(clntAdr));
     printf("发送服务器端断开请求\n");
     printf("服务器断开连接...\n");
+    closesocket(servSock);
     return 1;
 }
 

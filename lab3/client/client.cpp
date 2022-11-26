@@ -7,32 +7,25 @@
 using namespace std;
 
 const int MAXSIZE = 1024;//传输缓冲区最大长度
+const int dup_count_MAX = 50;//最大重传次数
 const char SYN = 0x1; //SYN = 1 ACK = 0
 const char ACK = 0x2;//SYN = 0, ACK = 1，FIN = 0
 const char FIN = 0x4;//FIN = 1 ACK = 0
 const char OVER = 0x5;//结束标志
 double MAX_TIME = 1 * CLOCKS_PER_SEC;
-const int dup_count_MAX = 50;
 string Flags[] = { "ZERO","SYN","ACK","SYN | ACK","FIN","OVER" };
 
-
+//记录重传变量
 int dup_count = 0;
 
 
-/*
-1.把伪首部添加到UDP上；
-2.计算初始时是需要将检验和字段添零的；
-3.把所有位划分为16位（2字节）的字
-4.把所有16位的字相加，如果遇到进位，则将高于16字节的进位部分的值加到最低位上，举例，0xBB5E+0xFCED=0x1 B84B，则将1放到最低位，得到结果是0xB84C
-5.将所有字相加得到的结果应该为一个16位的数，将该数取反则可以得到检验和checksum。 */
-
-u_short cksum(u_short* mes, int size) {
+u_short cksum(u_short* message, int size) {
     int count = (size + 1) / 2;
     u_short* buf = (u_short*)malloc(size + 1);
 
     //最后一位补零
     memset(buf, 0, size + 1);
-    memcpy(buf, mes, size);
+    memcpy(buf, message, size);
     u_long sum = 0;
     while (count--) {
         sum += *buf++;
@@ -110,8 +103,7 @@ int connect(SOCKET& sock, SOCKADDR_IN& servAdr)//三次握手建立连接
 
 void send_package(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* message, int len, int& order)
 {
-    //初始化重发次数
-    dup_count = 0;
+   
 
     //设置包的头部
     packet_head header;
@@ -121,7 +113,7 @@ void send_package(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen,
     header.flags = 0;
     header.sum= cksum((u_short*)&header, sizeof(header));
 
-    //整合udp数据包
+    //设置udp数据包
     memcpy(buffer, &header, sizeof(header));
     memcpy(buffer + sizeof(header), message, len);
     sendto(socketClient, buffer, len + sizeof(header), 0, (sockaddr*)&servAddr, servAddrlen);//发送
@@ -134,6 +126,9 @@ void send_package(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen,
 
     //记录发送时间
     clock_t start = clock();
+
+    //初始化重发次数
+    dup_count = 0;
 
     //接收回应信息，并进行处理
     while (1)
@@ -205,6 +200,8 @@ void send(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* m
 
     //设置over重发缓冲区
     packet_head header_copy = header;
+
+
     //等待服务器端发送over消息
     clock_t start = clock();
     dup_count = 0;
@@ -218,6 +215,7 @@ void send(SOCKET& socketClient, SOCKADDR_IN& servAddr, int& servAddrlen, char* m
             if (clock() - start > MAX_TIME)
             {
                 dup_count++;
+                //重发超过一定次数就关闭连接
                 if (dup_count >= dup_count_MAX)
                     closesocket(socketClient);
                 //超时重发
@@ -295,6 +293,7 @@ int disconnect(SOCKET& sock, SOCKADDR_IN& servAdr)
     h.sum = 0;
     h.sum = cksum((u_short*)&h, sizeof(h));
     sendto(sock, (char*)&h, sizeof(h), 0, (SOCKADDR*)&servAdr, sizeof(servAdr));
+    closesocket(sock);
     return 1;
 }
 
